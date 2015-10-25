@@ -1,0 +1,100 @@
+---
+title: "Practical Machine Learning"
+author: "Vedurmudi Shruti Chandrika"
+date: "Saturday, October 24, 2015"
+output: html_document
+
+# Practical Machine Learning-Prediction Algorithm for Excercise Pattern
+
+## Introduction-: 
+The project involves building a prediction algorithm for the excercise pattern for individuals who use devices like \textit{Jawbone Up, Nike FuelBand, and Fitbit}. The goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to  predict the \textit{classe} variable from the given dataset. The prediction model will be tested for 20 cases.
+
+## Data Loading and Preprocessing-:
+
+The first step includes loading the required packages for processing and the training and test datasets for building the algorithm.
+```{r}
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+trainData<-read.csv("C:\\Users\\SHRUTI\\Documents\\practical machine learning\\pml-training(1).csv",na.strings=c("NA",""),header=TRUE)
+testData<-read.csv("C:\\Users\\SHRUTI\\Documents\\practical machine learning\\pml-testing(1).csv",na.strings=c("NA",""),header=TRUE)
+
+dim(trainData)
+dim(testData)
+```
+This shows us that the training dataset has 19622 rows and 160 variables. The test dataset has 20 rows with 160 variables.
+
+## Cleaning the Data
+The data has lot of empty columns and columns which do not contribute towards the readings on the accelerometer.
+We clean the data to get rid of the unecessary columns.The number of complete cases in the data is 406.
+
+```{r}
+sum(complete.cases(trainData))
+trainData<-trainData[,colSums(is.na(trainData))== 0]
+testData<-testData[,colSums(is.na(testData))==0]
+trainClean<- grepl("^X|timestamp|window", names(trainData))
+trainData <- trainData[, !trainClean]
+testClean<-grepl("^X|timestamp|window", names(testData))
+testData <- testData[, !testClean]
+```
+The final dataset has just 54 columns left out of the initial 160.
+
+## Separating the datasets into training and validation data sets-:
+
+To build the prediction model we divide the dataset(mytrain) into two datasets- the training dataset(60%) and the validation dataset(40%).Setting the seed ensure that we can reproduce the results of the prediction algorithm.
+
+```{r}
+set.seed(22500)
+inTrain<-createDataPartition(trainData$classe,p=0.60,list=FALSE)
+mytrain<-trainData[inTrain,]
+mytest<-trainData[-inTrain,]
+dim(mytrain)
+dim(mytest)
+```
+
+## Building the Model-:
+
+We use the (Random Forest Algorithm) with a (5- fold cross validation) to build our prediction model. We will also check the accuracy and the out of sample error for the model.
+```{r}
+control<-trainControl(method="cv",5)
+Rfmodel<-train(classe ~.,data=mytrain,method="rf",trControl=control,ntree=250)
+Rfmodel
+prediction<-predict(Rfmodel,mytest)
+confusionMatrix(mytest$classe,prediction)
+```
+
+We use tree visualization for the data to get a better idea of the model.
+```{r}
+treeModel <- rpart(classe ~ ., data=mytrain,method="class")
+prp(treeModel)
+accuracy<-postResample(prediction,mytest$classe)
+accuracy
+outofsamplerror<-1-confusionMatrix(mytest$classe, prediction)$overall[1]
+outofsamplerror
+```
+The accuracy of the model is 99.28% and the out of sample error is 0.71%.
+
+## Testing the Model-: 
+
+Now we apply the prediction model to the dataset given for testing.
+
+```{r}
+finalresult<-predict(Rfmodel,testData)
+finalresult
+```
+
+## Project Program Submission-:
+
+We use the following code chunk to create files for submission to 20 online test cases. The code creates 20 different files for submission to each problem.
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(finalresult)
+```
